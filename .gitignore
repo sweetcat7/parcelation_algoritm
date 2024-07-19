@@ -1,0 +1,11 @@
+original_tractograms/
+intento_3/
+ffclust_onesub_test/
+visualization_test/
+DriveManager/
+ffclust_onesub_test/112516/
+ffclust_onesub_test/results/
+ffclust_onesub_test/__pycache__/
+DriveManager/client_secrets.json/
+DriveManager/credentials_module.json/
+DriveManager/settings.yaml/
