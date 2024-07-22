@@ -8,7 +8,8 @@ ffclust_onesub_test/intersection_v2_1/parcels_data/
 ffclust_onesub_test/112516/
 ffclust_onesub_test/results/
 ffclust_onesub_test/__pycache__/
-
+meshes/
+venv_tesis/
 original_tractograms/
 intento_3/
 visualization_test/

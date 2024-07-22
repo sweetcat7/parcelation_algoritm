@@ -1,8 +1,8 @@
 from BundleTools import bundleTools as bt
 from BundleTools import bundleTools3 as bt3
 import os
-from PreProcessingTools import filter_allsubs, apply_ffclust_allsubs, quantify_tractograms
-from InterClusterTools import save_all_centroids, load_filtered_centroids, interclustering
+from PreProcessingTools import filter_allsubs, apply_ffclust_allsubs, quantify_tractograms, elbow_method
+# from InterClusterTools import save_all_centroids, load_filtered_centroids, interclustering
 
 def main():
 
@@ -21,18 +21,18 @@ def main():
     """
     Cuantificación de fibras del filtrado
     """
-    quantify_tractograms(filtered_allsubs_output_dir, "60mmfiltered_MNI_21p.bundles")
+    # quantify_tractograms(filtered_allsubs_output_dir, "60mmfiltered_MNI_21p.bundles", path)
 
     """
     Aplicación del elbow method para encontrar puntos preliminares óptimos de ffclust.
     """
-
+    # elbow_method(path, num_intento, filter_thresh, subs_limit = 3)
     """
     Aplicación del clustering intrasujeto usando FFClust
     """
 
-    # filtered_tractograms_dir = os.path.join(path,"intento_2", "intrasujeto", "filtered_tractograms")
-    # ffclust_clusters_dir = os.path.join(path,"intento_2", "intrasujeto", "ffclust_clusters")
+    filtered_tractograms_dir = os.path.join(path,"intento_"+ str(num_intento), "intrasujeto", "filtered_tractograms")
+    ffclust_clusters_dir = os.path.join(path,"intento_"+ str(num_intento), "intrasujeto", "ffclust_clusters")
 
     parameters_ffclust = {
         "points": "0,3,10,17,20",
@@ -42,18 +42,18 @@ def main():
         "filter_thresh": filter_thresh
     }
     # blacklist = []
-    # apply_ffclust_allsubs(filtered_tractograms_dir, ffclust_clusters_dir, parameters_ffclust)
+    apply_ffclust_allsubs(filtered_tractograms_dir, ffclust_clusters_dir, parameters_ffclust)
 
     """
     Guardamos todos los centroides de los clusters 
     """
 
-    # allsubsdata_dir = os.path.join(path,"intento_2", "intersujeto", "allsubsdata")
+    allsubsdata_dir = os.path.join(path,"intento_"+str(num_intento), "intersujeto", "allsubsdata")
     # Si no se desea filtrar los clusters, dejar todos los parámetros como False.
     parameters_save_all_centroids = {
         "remove_little_ones": 10, # tamaño mínimo que debe tener un cluster (10 fibras)
         "size": 1.5, # Fibras de menos de size [mm] no se consideran.
-        "nearest": 100 # 
+        "nearest": 40 # 
     }
     # save_all_centroids(ffclust_clusters_dir, allsubsdata_dir, parameters_save_all_centroids)
 

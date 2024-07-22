@@ -37,8 +37,9 @@ Conteo de fibras en archivos .bundles
 """
 
 class quantify_tractograms():
-    def __init__(self, bundles_dir, bundle_name):
-        
+    def __init__(self, bundles_dir, bundle_name, path):
+
+        self.path = path
         subs = os.listdir(bundles_dir)
 
         # Contamos las fibras abriendo el .bundle en un diccionario
@@ -66,9 +67,9 @@ class quantify_tractograms():
         desviacion_estandar = math.sqrt(varianza)
         print(f"\n\tVarianza del número de fibras por sujeto tras filtrado: {varianza}")
         print(f"\n\tDesviación estandar del número de fibras por sujeto tras filtrado: {desviacion_estandar}")
-
+        
         # Graficar la distribución de los datos
-        self.plot_distribution(fiber_counts)
+        self.plot_distribution(fiber_counts, save_dir=os.path.dirname(os.path.dirname(bundles_dir)))
 
     def count_fibers_in_bundle(self, file_path):
         """Función para contar el número de fibras en un archivo .bundle."""
@@ -84,7 +85,7 @@ class quantify_tractograms():
             print(f"Error al leer el archivo {file_path}: {e}")
             return None
 
-    def plot_distribution(self, fiber_counts):
+    def plot_distribution(self, fiber_counts, save_dir):
         """Función para graficar la distribución de los datos."""
         counts = list(fiber_counts.values())
 
@@ -106,75 +107,90 @@ class quantify_tractograms():
         plt.tight_layout()
         
         # Guardar el gráfico como archivo de imagen
-        plt.savefig('fiber_distribution.png')
-        print("El gráfico de distribución se ha guardado como 'fiber_distribution.png'")
+        plt.savefig(os.path.join(self.path, save_dir, "filtered_fibers_quantity_distribution.png"))
+        print("El gráfico de distribución se ha guardado como filtered_fibers_quantity_distribution.png")
 
 
 
-class ElbowMethod():
-    def __init__(self, original_tractograms_dir, points_of_interest, cluster_numbers):
-        self.original_tractograms_dir = original_tractograms_dir
-        self.points_of_interest = points_of_interest
-        self.cluster_numbers = cluster_numbers
+"""
+Elbow method
+"""
 
-    def calculate_inertia(self, points, clusters):
-        kmeans = MiniBatchKMeans(n_clusters=clusters, random_state=42)
-        kmeans.fit(points)
-        return kmeans.inertia_
+# Función para calcular la suma de cuadrados intra-cluster
+def calculate_inertia(points, clusters):
+    kmeans = MiniBatchKMeans(n_clusters=clusters, random_state=42)
+    kmeans.fit(points)
+    return kmeans.inertia_
 
-    def process_subjects(self):
-        subs = sorted(os.listdir(self.original_tractograms_dir))
+def elbow_method(path, num_intento, filter_thresh, subs_limit = 100):
+    filtered_tractograms = os.path.join(path,"intento_" + str(num_intento),"intrasujeto","filtered_tractograms")
 
-        for sub in subs:
-            print("Trabajando sujeto ", sub)
-            bundle_file = os.path.join(self.original_tractograms_dir, sub, "40mmfiltered_MNI_21p.bundles")
-            try:
-                tractogram = bt3.read_bundle(bundle_file)
-                tractogram_len = len(tractogram)
-            except Exception as e:
-                print(f"Error al leer el archivo {bundle_file}: {e}")
-                continue
+    # Ordenamos los sujetos y escojemos primeros 5. Luego establecemos los puntos de interés. 
+    subs = sorted(os.listdir(filtered_tractograms))
+    points_of_interest = [0,4,10,16,20]
+    cluster_numbers = [25, 50, 75, 100, 125, 150, 175, 200, 225, 250, 275, 300, 325, 350, 375, 400, 425, 450, 475, 500, 525, 550, 575, 600]
 
-            points_dict = {point_index: [] for point_index in self.points_of_interest}
-            print("Guardando puntos de interés.")
-            for fiber in tractogram: 
-                for point in self.points_of_interest:
-                    points_dict[point].append(fiber[point])
+    count_subs = 0
+    for sub in subs:
+        # Importamos el archivo de tractografía 
+        print("Trabajando sujeto ",sub)
+        bundle_file = os.path.join(filtered_tractograms, sub, str(filter_thresh) + "mmfiltered_MNI_21p.bundles")
+        try:
+            tractogram = bt.read_bundle(bundle_file)
+        except Exception as e:
+            print(f"Error al leer el archivo {bundle_file}: {e}")
+            continue
 
-            for point_index in self.points_of_interest:
-                points_dict[point_index] = np.array(points_dict[point_index])
-            print("Puntos de interés guardados...")
+        # Diccionario para almacenar los puntos de interés
+        points_dict = {point_index: [] for point_index in points_of_interest}
 
-            self.plot_elbow_method(points_dict, sub)
+        print("Guardando puntos de interés.")
+        for fiber in tractogram: 
+            # Iteramos entre los valores de points of interest, los cuales pueden ser 
+            # [0,4,10,16,20]
+            for point in points_of_interest:
+                # Almacenamos los puntos de interés en el diccionario
+                points_dict[point].append(fiber[point])
 
-    def plot_elbow_method(self, points_dict, sub):
+        # Convertir listas en arrays numpy para facilitar el cálculo    
+        for point_index in points_of_interest:
+            points_dict[point_index] = np.array(points_dict[point_index])
+        print("Puntos de interés guardados...")
+
+        # Graficamos el método del codo y guardamos la gráfica como archivo PNG
         print("Iniciando creación de plots.")
         plt.figure()
-        for point_index in self.points_of_interest:
+        # Calculamos la inercia para los números de clusters especificados para cada punto de interés
+        for point_index in points_of_interest:
             print("point: ", point_index)
             inertias = []
-            for k in self.cluster_numbers:
-                inertia = self.calculate_inertia(points_dict[point_index], k)
+            for k in cluster_numbers:
+                inertia = calculate_inertia(points_dict[point_index], k)
                 inertias.append(inertia)
-                print("\tn_clusters: ", k, "\tinertia: ", inertia)
-            plt.plot(self.cluster_numbers, inertias, label=f'Punto de interés {point_index}')
+                print("\tn_clusters: ",k,"\tinertia: ", inertia)
+            plt.plot(cluster_numbers, inertias, label=f'Punto de interés {point_index}')
         
-        output_dir = os.path.join(os.getcwd(), "intento_2", "intrasujeto", "elbow_method")
+        # Crear el directorio si no existe
+        output_dir = os.path.join(path, "intento_" + str(num_intento), "intrasujeto", "elbow_method")
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
+        # Configurar las propiedades del gráfico
         plt.xlabel('Número de Clusters')
         plt.ylabel('Inercia')
         plt.title(f'Método del Codo - Sujeto {sub}')
-        plt.xticks(self.cluster_numbers, rotation=90)
+        plt.xticks(cluster_numbers, rotation=90)
         plt.legend()
         plt.grid(True)
 
+        # Guardar y mostrar el gráfico
         output_file = os.path.join(output_dir, f"elbow_method_{sub}.png")
         plt.savefig(output_file)
-        plt.close()
+        plt.close()  # Cerrar la figura para liberar memoria
         print(f"Gráfica guardada como {output_file}")
-
+        count_subs += 1
+        if count_subs > subs_limit:
+            break
 
 """
 Aplicación de ffclust
